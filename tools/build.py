@@ -58,7 +58,7 @@ def check_environment() -> None:
         raise SystemExit(f"未安装 PyInstaller：{exc}\n请先执行  python -m pip install -U pyinstaller")
 
 
-def build(onefile: bool, clean: bool, console: bool = False) -> Path:
+def build(onefile: bool, clean: bool, console: bool = False, tmpdir: str | None = None) -> Path:
     sep = ";" if sys.platform == "win32" else ":"
     dist_dir = ROOT / "dist"
     work_dir = ROOT / "build" / "work"
@@ -78,6 +78,9 @@ def build(onefile: bool, clean: bool, console: bool = False) -> Path:
     ]
     if clean:
         args.append("--clean")
+    if tmpdir:
+        # 打包后解压到固定目录，不依赖 %TEMP%（低权限/沙箱环境里 %TEMP% 可能写不进去）
+        args += ["--runtime-tmpdir", tmpdir]
     if ICON.exists():
         args += ["--icon", str(ICON)]
     if VERSION_FILE.exists():
@@ -107,10 +110,11 @@ def main() -> int:
     parser.add_argument("--onedir", action="store_true", help="打成目录版而不是单文件")
     parser.add_argument("--no-clean", action="store_true", help="不清空构建缓存")
     parser.add_argument("--console", action="store_true", help="保留控制台窗口，排错用")
+    parser.add_argument("--tmpdir", default=None, help="onefile 解压目录（默认用系统 %%TEMP%%）")
     ns = parser.parse_args()
 
     check_environment()
-    exe = build(onefile=not ns.onedir, clean=not ns.no_clean, console=ns.console)
+    exe = build(onefile=not ns.onedir, clean=not ns.no_clean, console=ns.console, tmpdir=ns.tmpdir)
     size_mb = exe.stat().st_size / (1024 * 1024)
     print(f"\n打包完成：{exe}  ({size_mb:.1f} MB)")
     return 0

@@ -9,6 +9,7 @@ import secrets
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -27,6 +28,14 @@ TEST_LOG_FILE = RUNTIME_DIR / "test-core.log"
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
+# 测速参数。移动热点/远距离链路上 RTT 常在 300ms 以上还带丢包，TLS/QUIC 握手
+# 要好几轮往返，6 秒的预算会把本来能用的节点误判成「连接超时」；并发数过高时
+# 探测之间还会互相抢带宽，所以这里放宽超时、压低并发并允许重试一次。
+TEST_DELAY_TIMEOUT_MS = 12000      # sing-box 单次探测的服务端超时
+TEST_DELAY_CLIENT_TIMEOUT = 16.0   # 本机等 Clash API 应答的超时，需大于上面
+TEST_DELAY_CONCURRENCY = 2         # 同时探测的节点数（实测：并发 5 时 0/5 通过，并发 2 时 5/5 通过）
+TEST_DELAY_RETRIES = 1             # 失败后的重试次数
+
 
 def is_admin() -> bool:
     if os.name != "nt":
@@ -39,6 +48,21 @@ def is_admin() -> bool:
 
 def _hide_flags() -> int:
     return CREATE_NO_WINDOW
+
+
+def _describe_delay_error(raw: str) -> str:
+    """把 sing-box / urllib 的原始报错收敛成一句能给用户看的话。"""
+    text = (raw or "").strip()
+    try:
+        payload = json.loads(text)
+    except Exception:
+        payload = None
+    if isinstance(payload, dict):
+        text = str(payload.get("message") or "").strip() or text
+    lowered = text.lower()
+    if "context deadline exceeded" in lowered or "timed out" in lowered or "timeout" in lowered:
+        return "连接超时"
+    return (text or "测速失败")[:300]
 
 
 class CoreManager:
@@ -387,30 +411,44 @@ class CoreManager:
                     raise RuntimeError("测速核心启动失败。" + (("\n" + tail) if tail else ""))
                 delay_base = (
                     f"http://127.0.0.1:{api_port}/proxies/"
-                    "{tag}/delay?url=" + urllib.parse.quote(test_url, safe="") + "&timeout=6000"
+                    "{tag}/delay?url=" + urllib.parse.quote(test_url, safe="")
+                    + f"&timeout={TEST_DELAY_TIMEOUT_MS}"
                 )
 
-                def probe(index: int, node: dict[str, Any]) -> tuple[dict[str, Any], int | None, str | None]:
+                def probe_once(index: int) -> tuple[int | None, str | None]:
                     req = urllib.request.Request(
                         delay_base.format(tag=f"node-{index}"),
                         headers={"Authorization": f"Bearer {test_secret}"},
                     )
                     try:
-                        with urllib.request.urlopen(req, timeout=10) as response:
+                        with urllib.request.urlopen(req, timeout=TEST_DELAY_CLIENT_TIMEOUT) as response:
                             payload = json.loads(response.read().decode("utf-8", errors="replace"))
                         delay = payload.get("delay")
-                        return node, int(delay) if isinstance(delay, (int, float)) else None, None
-                    except Exception as exc:
+                        return (int(delay) if isinstance(delay, (int, float)) else None), None
+                    except urllib.error.HTTPError as exc:
+                        # 节点确实连不通时，sing-box 会带着 {"message": "..."} 返回 5xx
                         try:
-                            body = exc.read().decode("utf-8", errors="replace")[:300]  # type: ignore[attr-defined]
+                            body = exc.read().decode("utf-8", errors="replace")
                         except Exception:
                             body = ""
-                        message = body or str(exc)
-                        if "timed out" in message.lower() or "timeout" in message.lower():
-                            message = "连接超时"
-                        return node, None, message[:300]
+                        return None, _describe_delay_error(body or str(exc))
+                    except Exception as exc:
+                        # Clash API 自己没应答：这是本地测速核心的问题，不该记到节点头上
+                        return None, f"测速核心无响应（{type(exc).__name__}）"
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(valid_nodes))) as executor:
+                def probe(index: int, node: dict[str, Any]) -> tuple[dict[str, Any], int | None, str | None]:
+                    error: str | None = None
+                    for attempt in range(TEST_DELAY_RETRIES + 1):
+                        delay, error = probe_once(index)
+                        if delay is not None:
+                            return node, delay, None
+                        if attempt < TEST_DELAY_RETRIES:
+                            time.sleep(0.4)
+                    return node, None, error
+
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=min(TEST_DELAY_CONCURRENCY, len(valid_nodes))
+                ) as executor:
                     for node, delay, error in executor.map(lambda pair: probe(*pair), list(enumerate(valid_nodes))):
                         now = int(time.time())
                         if delay is not None:

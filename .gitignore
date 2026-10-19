@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+data/
+runtime/
+build/
+build_deps/
+dist/
+*.log
+*.zip
+*.pfx
+*.p12
+.env
+/*.exe

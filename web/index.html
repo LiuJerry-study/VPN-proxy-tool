@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#050912">
+  <title>轻连 VPN</title>
+  <link rel="icon" href="icon.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10.8Z"/></symbol>
+    <symbol id="i-nodes" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="18" r="2.4"/><path d="M12 7.4v4.2M6.8 15.9l3.5-3.1M17.2 15.9l-3.5-3.1"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.7-8.95A6 6 0 0 1 17.8 9.4 4.3 4.3 0 0 1 17 18H7Z"/><path d="M12 11v6M9.7 13.3 12 11l2.3 2.3"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06L7.06 3.7l.06.06A1.7 1.7 0 0 0 9 4.1a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.1A1.7 1.7 0 0 0 15.5 4.1a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.9 8.5a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v9"/><path d="M6.2 5.8a8 8 0 1 0 11.6 0"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5"/><path d="M18.4 16a8 8 0 1 1 .5-8.7L20 12"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.5 6 3.5 3.5"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 7.9 7.5 9.5 4.3-1.6 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m8.8 12 2.2 2.2 4.3-4.5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4.5" width="12" height="16.5" rx="2"/><path d="M9 4.5V3h6v1.5M9.5 9h5M9.5 13h5M9.5 17h3"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 6 6 6-6 6M12 18h8"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.1"/></symbol>
+    <symbol id="i-logo" viewBox="0 0 48 48"><path d="M7 25.5 41 8.5 31.5 41 23 29.5 7 25.5Z" fill="currentColor"/><path d="m23 29.5 18-21L18 22.2l5 7.3Z" fill="rgba(4,10,24,.28)"/></symbol>
+  </svg>
+
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><svg class="icon logo-icon"><use href="#i-logo"></use></svg></div>
+        <div>
+          <div class="brand-name">轻连 <span>VPN</span></div>
+          <div class="brand-sub">QINGLIAN NETWORK</div>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="主导航">
+        <button class="nav-item active" data-page="home">
+          <svg class="icon"><use href="#i-home"></use></svg><span>网络总览</span>
+        </button>
+        <button class="nav-item" data-page="nodes">
+          <svg class="icon"><use href="#i-nodes"></use></svg><span>节点列表</span><b id="navNodeCount">0</b>
+        </button>
+        <button class="nav-item" data-page="subscriptions">
+          <svg class="icon"><use href="#i-cloud"></use></svg><span>订阅管理</span>
+        </button>
+        <button class="nav-item" data-page="settings">
+          <svg class="icon"><use href="#i-settings"></use></svg><span>偏好设置</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-status">
+        <span class="status-dot" id="sideDot"></span>
+        <div>
+          <strong id="sideStatus">未连接</strong>
+          <small id="sideSub">本地代理待命</small>
+        </div>
+      </div>
+      <button class="sidebar-help" id="helpBtn">
+        <svg class="icon"><use href="#i-shield"></use></svg>
+        <span>简单、干净、够快</span>
+      </button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="topbar-kicker">QINGLIAN / CONTROL CENTER</p>
+          <h1 id="pageTitle">网络总览</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="core-pill" id="corePill"><span></span><b>核心待命</b></div>
+          <button class="icon-button" id="topImportBtn" title="导入节点" aria-label="导入节点">
+            <svg class="icon"><use href="#i-plus"></use></svg>
+          </button>
+          <button class="avatar-button" id="topSettingsBtn" title="设置" aria-label="设置">Q</button>
+        </div>
+      </header>
+
+      <section class="page active" id="page-home">
+        <div class="hero-grid">
+          <article class="hero-card panel">
+            <div class="hero-card-top">
+              <div class="eyebrow"><span class="live-dot" id="heroLiveDot"></span> 当前连接</div>
+              <div class="protocol-chip" id="heroProtocol">未选择</div>
+            </div>
+            <div class="hero-main">
+              <div class="power-wrap">
+                <div class="power-ring"></div>
+                <button class="power-button" id="connectBtn" aria-label="连接或断开">
+                  <svg class="icon power-icon"><use href="#i-power"></use></svg>
+                  <span id="connectLabel">连接</span>
+                </button>
+              </div>
+              <div class="hero-copy">
+                <h2 id="currentNodeName">还没有节点</h2>
+                <p id="currentNodeMeta">导入订阅或 v2rayN 节点后即可一键连接</p>
+                <div class="hero-buttons">
+                  <button class="btn ghost" id="testCurrentBtn">
+                    <svg class="icon"><use href="#i-bolt"></use></svg> 当前节点测速
+                  </button>
+                  <button class="btn ghost" id="chooseNodeBtn">
+                    切换节点 <svg class="icon"><use href="#i-chevron"></use></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="hero-bottom">
+              <div class="hero-detail">
+                <span>本地代理</span>
+                <strong id="proxyAddress">127.0.0.1:2080</strong>
+              </div>
+              <div class="hero-detail">
+                <span>系统代理</span>
+                <strong id="systemProxyText">未启用</strong>
+              </div>
+              <div class="hero-detail">
+                <span>运行时长</span>
+                <strong id="uptimeText">--</strong>
+              </div>
+            </div>
+            <div class="alert-panel hidden" id="heroAlert"></div>
+          </article>
+
+          <div class="side-stack">
+            <article class="panel mode-card">
+              <div class="panel-heading">
+                <div><span class="section-kicker">ROUTING</span><h3>分流模式</h3></div>
+                <button class="text-button" data-page-jump="settings">高级</button>
+              </div>
+              <div class="segmented" id="modeSegmented">
+                <button data-mode="rule" class="active"><span>规则</span><small>国内直连</small></button>
+                <button data-mode="global"><span>全局</span><small>全部代理</small></button>
+                <button data-mode="direct"><span>直连</span><small>暂停代理</small></button>
+              </div>
+            </article>
+
+            <article class="panel traffic-card">
+              <div class="panel-heading">
+                <div><span class="section-kicker">LIVE TRAFFIC</span><h3>实时流量</h3></div>
+                <span class="stream-state" id="trafficStreamState">待命</span>
+              </div>
+              <div class="speed-row">
+                <div class="speed-stat">
+                  <div class="speed-icon down"><svg class="icon"><use href="#i-download"></use></svg></div>
+                  <div><small>下载速度</small><strong id="downSpeed">0 B/s</strong></div>
+                </div>
+                <div class="speed-stat">
+                  <div class="speed-icon up"><svg class="icon"><use href="#i-upload"></use></svg></div>
+                  <div><small>上传速度</small><strong id="upSpeed">0 B/s</strong></div>
+                </div>
+              </div>
+              <div class="chart-wrap">
+                <svg class="traffic-chart" id="trafficChart" viewBox="0 0 620 100" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#55e6ff" stop-opacity=".33"/>
+                      <stop offset="100%" stop-color="#55e6ff" stop-opacity="0"/>
+                    </linearGradient>
+                    <linearGradient id="chartStroke" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#6ef2bd"/>
+                      <stop offset="100%" stop-color="#55c8ff"/>
+                    </linearGradient>
+                  </defs>
+                  <path id="chartArea" fill="url(#chartFill)" d=""></path>
+                  <path id="chartLine" fill="none" stroke="url(#chartStroke)" stroke-width="2.2" stroke-linecap="round" d=""></path>
+                </svg>
+                <div class="chart-empty" id="chartEmpty">连接后显示实时流量曲线</div>
+              </div>
+              <div class="total-row">
+                <span>本次下载 <b id="totalDown">0 B</b></span>
+                <span>本次上传 <b id="totalUp">0 B</b></span>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="home-lower">
+          <article class="panel quick-nodes-card">
+            <div class="panel-heading">
+              <div><span class="section-kicker">QUICK ACCESS</span><h3>常用节点</h3></div>
+              <button class="text-button" data-page-jump="nodes">全部节点 <svg class="icon"><use href="#i-chevron"></use></svg></button>
+            </div>
+            <div id="homeNodes" class="home-nodes"></div>
+          </article>
+
+          <article class="panel status-card">
+            <div class="panel-heading">
+              <div><span class="section-kicker">SYSTEM</span><h3>网络状态</h3></div>
+              <svg class="icon subtle-icon"><use href="#i-shield"></use></svg>
+            </div>
+            <div class="system-row">
+              <div><span>系统代理</span><small>浏览器与应用流量</small></div>
+              <button class="toggle" id="homeSystemProxyToggle" role="switch" aria-checked="false"><span></span></button>
+            </div>
+            <div class="system-row">
+              <div><span>TUN 模式</span><small id="tunStatusText">需要管理员权限</small></div>
+              <button class="toggle" id="homeTunToggle" role="switch" aria-checked="false"><span></span></button>
+            </div>
+            <div class="core-meta">
+              <span>核心</span><b id="coreVersionText">sing-box</b>
+              <span class="core-sep"></span><span id="adminText">标准权限</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" id="page-nodes">
+        <div class="page-toolbar">
+          <div>
+            <span class="section-kicker">SERVER LIBRARY</span>
+            <h2>节点列表 <span class="title-count" id="nodesCount">0</span></h2>
+            <p>选择一个节点，轻连会自动切换到新的线路。</p>
+          </div>
+          <div class="toolbar-actions">
+            <label class="search-box">
+              <svg class="icon"><use href="#i-search"></use></svg>
+              <input id="nodeSearch" type="search" placeholder="搜索节点..." autocomplete="off">
+            </label>
+            <button class="btn ghost" id="clipboardImportBtn" title="从 Windows 剪贴板读取节点或订阅地址">
+              <svg class="icon"><use href="#i-clipboard"></use></svg> 剪贴板导入
+            </button>
+            <button class="btn ghost" id="clipboardExportBtn" title="把全部节点分享链接复制到 Windows 剪贴板">
+              <svg class="icon"><use href="#i-export"></use></svg> 导出剪贴板
+            </button>
+            <button class="btn ghost" id="testAllBtn"><svg class="icon"><use href="#i-bolt"></use></svg> 全部测速</button>
+            <button class="btn primary" id="importNodeBtn"><svg class="icon"><use href="#i-plus"></use></svg> 导入节点</button>
+          </div>
+        </div>
+        <div class="filter-strip" id="filterStrip">
+          <button class="filter-chip active" data-filter="all">全部</button>
+          <button class="filter-chip" data-filter="vless">VLESS</button>
+          <button class="filter-chip" data-filter="trojan">Trojan</button>
+          <button class="filter-chip" data-filter="hysteria2">Hysteria2</button>
+          <button class="filter-chip" data-filter="tuic">TUIC</button>
+          <button class="filter-chip" data-filter="shadowsocks">Shadowsocks</button>
+          <button class="filter-chip" data-filter="other">其他</button>
+        </div>
+        <div class="node-grid" id="nodeGrid"></div>
+        <div class="empty-state hidden" id="nodesEmpty">
+          <div class="empty-icon"><svg class="icon"><use href="#i-nodes"></use></svg></div>
+          <h3>这里还没有节点</h3>
+          <p>粘贴分享链接、订阅地址，或点击上方“剪贴板导入”从 Windows 剪贴板导入。</p>
+          <button class="btn primary" id="emptyImportBtn"><svg class="icon"><use href="#i-plus"></use></svg> 立即导入</button>
+        </div>
+      </section>
+
+      <section class="page" id="page-subscriptions">
+        <div class="page-toolbar">
+          <div>
+            <span class="section-kicker">SUBSCRIPTIONS</span>
+            <h2>订阅管理</h2>
+            <p>支持 v2rayN / Clash / Mihomo 订阅，更新时自动保留节点顺序。</p>
+          </div>
+          <button class="btn ghost" id="manualImportBtn"><svg class="icon"><use href="#i-plus"></use></svg> 粘贴节点链接</button>
+        </div>
+
+        <div class="subscription-layout">
+          <article class="panel add-sub-card">
+            <div class="panel-heading">
+              <div><span class="section-kicker">ADD SOURCE</span><h3>添加订阅</h3></div>
+              <div class="icon-orb"><svg class="icon"><use href="#i-link"></use></svg></div>
+            </div>
+            <form id="addSubForm">
+              <label class="field-label" for="subName">名称 <span>可选</span></label>
+              <input class="text-field" id="subName" type="text" placeholder="例如：机场订阅" maxlength="60">
+              <label class="field-label" for="subUrl">订阅地址</label>
+              <div class="input-with-icon">
+                <svg class="icon"><use href="#i-link"></use></svg>
+                <input class="text-field" id="subUrl" type="url" placeholder="https://example.com/subscription" required>
+              </div>
+              <p class="field-hint">只接受 http(s) 地址。地址中的 token 仅保存在本机。</p>
+              <button class="btn primary full" id="addSubBtn" type="submit"><svg class="icon"><use href="#i-plus"></use></svg> 添加并拉取节点</button>
+            </form>
+            <div class="divider"></div>
+            <div class="v2rayn-import">
+              <div class="v2rayn-head">
+                <div class="mini-logo">v2</div>
+                <div><strong>从 v2rayN 迁移</strong><small>直接读取现有服务器列表</small></div>
+              </div>
+              <div class="path-box"><span id="v2raynPathText">未配置</span><button class="text-button" id="changeV2raynPath">修改</button></div>
+              <button class="btn secondary full" id="importV2raynBtn"><svg class="icon"><use href="#i-refresh"></use></svg> 重新导入 v2rayN 节点</button>
+            </div>
+          </article>
+
+          <article class="panel subscription-list-card">
+            <div class="panel-heading">
+              <div><span class="section-kicker">SOURCES</span><h3>我的订阅</h3></div>
+              <span class="soft-badge" id="subCountBadge">0 个来源</span>
+            </div>
+            <div id="subscriptionList" class="subscription-list"></div>
+            <div class="empty-mini hidden" id="subsEmpty">
+              <svg class="icon"><use href="#i-cloud"></use></svg>
+              <p>还没有订阅。添加一个订阅地址后，节点会自动出现。</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" id="page-settings">
+        <div class="page-toolbar">
+          <div>
+            <span class="section-kicker">PREFERENCES</span>
+            <h2>偏好设置</h2>
+            <p>轻连只做必要的事，所有配置都保存在本机。</p>
+          </div>
+          <button class="btn ghost" id="settingsReloadBtn"><svg class="icon"><use href="#i-refresh"></use></svg> 重新读取</button>
+        </div>
+
+        <div class="settings-grid">
+          <article class="panel settings-card">
+            <div class="panel-heading"><div><span class="section-kicker">CONNECTION</span><h3>连接</h3></div><svg class="icon subtle-icon"><use href="#i-bolt"></use></svg></div>
+            <div class="setting-row">
+              <div><strong>本地混合端口</strong><small>SOCKS5 与 HTTP 共用此端口</small></div>
+              <div class="port-control"><input class="number-field" id="settingsPort" type="number" min="1024" max="65535"><button class="btn small" id="savePortBtn">保存</button></div>
+            </div>
+            <div class="setting-row">
+              <div><strong>自动设置系统代理</strong><small>连接时接管浏览器和桌面应用的 HTTP/HTTPS 流量</small></div>
+              <button class="toggle" data-setting-toggle="system_proxy" role="switch"><span></span></button>
+            </div>
+            <div class="setting-row">
+              <div><strong>启动后自动连接</strong><small>打开轻连时自动连接到上次使用的节点</small></div>
+              <button class="toggle" data-setting-toggle="auto_connect" role="switch"><span></span></button>
+            </div>
+            <div class="setting-row">
+              <div><strong>TUN 模式</strong><small>接管全部系统流量，需要管理员权限</small></div>
+              <button class="toggle" data-setting-toggle="tun_mode" role="switch"><span></span></button>
+            </div>
+            <div class="inline-warning hidden" id="tunAdminWarning">
+              <svg class="icon"><use href="#i-info"></use></svg>
+              <span>TUN 模式需要管理员权限，保存后请使用「以管理员身份重启」。</span>
+            </div>
+          </article>
+
+          <article class="panel settings-card">
+            <div class="panel-heading"><div><span class="section-kicker">APP BEHAVIOR</span><h3>应用</h3></div><svg class="icon subtle-icon"><use href="#i-settings"></use></svg></div>
+            <div class="setting-row">
+              <div><strong>关闭窗口时留在托盘</strong><small>后台保持连接，可从托盘重新打开</small></div>
+              <button class="toggle" data-setting-toggle="close_to_tray" role="switch"><span></span></button>
+            </div>
+            <div class="setting-row">
+              <div><strong>开机自动启动</strong><small>登录 Windows 后自动在托盘运行</small></div>
+              <button class="toggle" data-setting-toggle="autostart" role="switch"><span></span></button>
+            </div>
+            <div class="setting-row">
+              <div><strong>管理员权限重启</strong><small id="adminSettingHint">TUN 模式需要管理员权限</small></div>
+              <button class="btn small ghost" id="relaunchAdminBtn">以管理员身份重启</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>测试地址</strong><small>节点测速使用的 HTTP 204 地址</small></div>
+              <button class="btn small ghost" id="editTestUrlBtn">修改</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>退出轻连</strong><small>断开代理并退出后台程序</small></div>
+              <button class="btn small danger" id="quitAppBtn">退出</button>
+            </div>
+          </article>
+
+          <article class="panel settings-card">
+            <div class="panel-heading"><div><span class="section-kicker">DATA</span><h3>数据来源</h3></div><svg class="icon subtle-icon"><use href="#i-cloud"></use></svg></div>
+            <div class="setting-row">
+              <div><strong>v2rayN 目录</strong><small id="settingsV2raynHint">用于一键迁移节点</small></div>
+              <button class="btn small ghost" id="settingsChangeV2rayn">修改</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>本地配置</strong><small id="localDataPath">节点与偏好数据位置</small></div>
+              <button class="btn small ghost" id="openDataInfoBtn">说明</button>
+            </div>
+            <div class="setting-row">
+              <div><strong>清空运行日志</strong><small>日志不会包含节点密码</small></div>
+              <button class="btn small ghost" id="clearLogsBtn">清空</button>
+            </div>
+          </article>
+
+          <article class="panel settings-card diagnostics-card">
+            <div class="panel-heading"><div><span class="section-kicker">DIAGNOSTICS</span><h3>诊断</h3></div><svg class="icon subtle-icon"><use href="#i-terminal"></use></svg></div>
+            <div class="diag-meta">
+              <div><span>应用版本</span><b id="diagAppVersion">1.0.0</b></div>
+              <div><span>代理核心</span><b id="diagCoreVersion">sing-box</b></div>
+              <div><span>权限</span><b id="diagAdmin">标准用户</b></div>
+              <div><span>节点数</span><b id="diagNodeCount">0</b></div>
+            </div>
+            <button class="btn secondary full" id="viewLogsBtn"><svg class="icon"><use href="#i-terminal"></use></svg> 查看运行日志</button>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-layer hidden" id="modalLayer" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-modal-close="1"></div>
+    <div class="modal-card" id="modalCard">
+      <div class="modal-head">
+        <div><span class="section-kicker" id="modalKicker">QINGLIAN</span><h2 id="modalTitle">标题</h2></div>
+        <button class="icon-button" id="modalCloseBtn" aria-label="关闭"><svg class="icon"><use href="#i-x"></use></svg></button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot" id="modalFoot"></div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <div class="boot-screen" id="bootScreen">
+    <div class="boot-mark"><svg class="icon logo-icon"><use href="#i-logo"></use></svg></div>
+    <div class="boot-name">轻连 VPN</div>
+    <div class="boot-spinner"></div>
+    <p>正在准备你的网络空间...</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

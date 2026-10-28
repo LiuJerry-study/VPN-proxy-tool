@@ -28,6 +28,7 @@
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></symbol>
+    <symbol id="i-select" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="m8.2 12.1 2.8 2.8 5.2-5.6"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
     <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1"/></symbol>
     <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4.5" width="12" height="16.5" rx="2"/><path d="M9 4.5V3h6v1.5M9.5 9h5M9.5 13h5M9.5 17h3"/></symbol>
@@ -234,6 +235,9 @@
               <svg class="icon"><use href="#i-search"></use></svg>
               <input id="nodeSearch" type="search" placeholder="搜索节点..." autocomplete="off">
             </label>
+            <button class="btn ghost" id="selectModeBtn" aria-pressed="false" title="进入多选模式">
+              <svg class="icon"><use href="#i-select"></use></svg> <span id="selectModeLabel">多选</span>
+            </button>
             <button class="btn ghost" id="clipboardImportBtn" title="从 Windows 剪贴板读取节点或订阅地址">
               <svg class="icon"><use href="#i-clipboard"></use></svg> 剪贴板导入
             </button>
@@ -252,6 +256,18 @@
           <button class="filter-chip" data-filter="tuic">TUIC</button>
           <button class="filter-chip" data-filter="shadowsocks">Shadowsocks</button>
           <button class="filter-chip" data-filter="other">其他</button>
+        </div>
+        <div class="selection-bar hidden" id="selectionBar" role="toolbar" aria-label="批量操作">
+          <div class="selection-info">
+            <strong id="selectionCount">已选 0 个节点</strong>
+            <span class="selection-hint">点击节点勾选，Shift 可连续选择</span>
+          </div>
+          <div class="selection-actions">
+            <button class="btn ghost" id="selectAllBtn">全选</button>
+            <button class="btn secondary" id="batchCopyBtn" disabled><svg class="icon"><use href="#i-export"></use></svg> 复制链接</button>
+            <button class="btn danger" id="batchDeleteBtn" disabled><svg class="icon"><use href="#i-trash"></use></svg> 删除</button>
+            <button class="icon-button" id="exitSelectBtn" title="退出多选" aria-label="退出多选"><svg class="icon"><use href="#i-x"></use></svg></button>
+          </div>
         </div>
         <div class="node-grid" id="nodeGrid"></div>
         <div class="empty-state hidden" id="nodesEmpty">

@@ -308,6 +308,26 @@ class Application:
             self.store.delete_node(node_id)
             self._ok(handler, state=self._state_payload())
             return
+        if path == "/api/nodes/delete":
+            ids = data.get("ids")
+            if ids is None:
+                raise ValueError("缺少节点 ID")
+            if not isinstance(ids, list):
+                raise ValueError("节点列表格式错误")
+            if not ids:
+                raise ValueError("缺少节点 ID")
+            wanted = list(dict.fromkeys(str(node_id) for node_id in ids))
+            existing_ids = {str(node.get("id")) for node in self.store.nodes}
+            targets = [node_id for node_id in wanted if node_id in existing_ids]
+            if not targets:
+                raise ValueError("节点不存在")
+            current = self.core.status()
+            if current.get("connected") and current.get("node_id") in targets:
+                self.core.disconnect()
+            for node_id in targets:
+                self.store.delete_node(node_id)
+            self._ok(handler, count=len(targets), state=self._state_payload())
+            return
         if path == "/api/nodes/test":
             ids = data.get("ids")
             if ids is not None and not isinstance(ids, list):
@@ -327,7 +347,7 @@ class Application:
             self._import_from_clipboard(handler)
             return
         if path == "/api/clipboard/export":
-            self._export_to_clipboard(handler)
+            self._export_to_clipboard(handler, data)
             return
         if path == "/api/import/v2rayn":
             path_value = str(data.get("path") or self.store.settings.get("v2rayn_path") or "").strip()
@@ -431,8 +451,16 @@ class Application:
             added += 1
         self._ok(handler, mode="nodes", count=added, skipped=skipped, state=self._state_payload())
 
-    def _export_to_clipboard(self, handler: BaseHTTPRequestHandler) -> None:
+    def _export_to_clipboard(self, handler: BaseHTTPRequestHandler, data: dict[str, Any]) -> None:
         nodes = self.store.nodes
+        ids = data.get("ids")
+        if ids is not None:
+            if not isinstance(ids, list):
+                raise ValueError("节点列表格式错误")
+            wanted = {str(node_id) for node_id in ids}
+            nodes = [node for node in nodes if str(node.get("id")) in wanted]
+            if not nodes:
+                raise ValueError("没有找到要导出的节点")
         if not nodes:
             raise ValueError("当前没有可导出的节点")
         links: list[str] = []

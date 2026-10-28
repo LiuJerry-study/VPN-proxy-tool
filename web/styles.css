@@ -402,6 +402,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .btn.danger:hover { color: #fff; background: rgba(255,126,145,.14); }
 .btn.small { min-height: 29px; padding: 0 10px; font-size: 9px; border-radius: 9px; }
 .btn.full { width: 100%; min-height: 42px; }
+.btn.active {
+  color: var(--cyan); background: rgba(85,230,255,.105);
+  border-color: rgba(85,230,255,.3); box-shadow: 0 0 0 3px rgba(85,230,255,.055);
+}
 .btn-spinner { width: 12px; height: 12px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
 
 .toggle {
@@ -438,6 +442,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .filter-chip:hover { background: rgba(255,255,255,.035); color: var(--text-soft); }
 .filter-chip.active { color: var(--cyan); background: rgba(85,230,255,.07); border-color: rgba(85,230,255,.12); }
 
+.selection-bar {
+  position: sticky; top: 12px; z-index: 12;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  margin-bottom: 14px; padding: 10px 12px;
+  border: 1px solid rgba(85,230,255,.17); border-radius: 14px;
+  background: linear-gradient(120deg, rgba(18,33,54,.94), rgba(10,19,34,.92));
+  box-shadow: 0 14px 40px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.04);
+  backdrop-filter: blur(16px);
+}
+.selection-info { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.selection-info strong { color: var(--cyan); font-size: 10px; font-weight: 650; white-space: nowrap; }
+.selection-hint { color: var(--text-faint); font-size: 9px; line-height: 1.4; }
+.selection-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-left: auto; }
+.selection-actions .icon-button { width: 35px; height: 35px; border-radius: 11px; }
+
 .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
 .node-card {
   padding: 17px; border-radius: 18px; border: 1px solid rgba(255,255,255,.075);
@@ -451,6 +470,29 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 .node-card:hover { border-color: rgba(157,205,255,.18); background: linear-gradient(145deg, rgba(24,39,66,.75), rgba(12,21,38,.7)); transform: translateY(-2px); }
 .node-card:hover::before { opacity: 1; }
 .node-card.selected { border-color: rgba(85,230,255,.24); box-shadow: 0 0 0 1px rgba(85,230,255,.05), 0 15px 40px rgba(0,0,0,.2); }
+.node-grid.selecting .node-tools { display: none; }
+.node-card.multi-selected {
+  border-color: rgba(85,230,255,.44);
+  background: linear-gradient(145deg, rgba(21,44,70,.82), rgba(10,19,35,.74));
+  box-shadow: 0 0 0 1px rgba(85,230,255,.14), 0 0 26px rgba(85,230,255,.09), 0 15px 40px rgba(0,0,0,.22);
+}
+.node-card.multi-selected::before { opacity: 1; }
+.node-card.multi-selected h3 { color: var(--cyan-soft); }
+.select-check {
+  display: none; width: 22px; height: 22px; flex: 0 0 auto;
+  align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,.16); border-radius: 7px;
+  background: rgba(255,255,255,.035); color: #fff;
+  transition: border-color .18s, background .18s, box-shadow .18s;
+}
+.node-grid.selecting .select-check { display: inline-flex; }
+.select-check .icon { width: 13px; height: 13px; stroke-width: 3; opacity: 0; transition: opacity .15s; }
+.select-check[aria-checked="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, #8ff4ff, #55e6ff 48%, #6df0bf);
+  box-shadow: 0 0 0 3px rgba(85,230,255,.1), 0 4px 14px rgba(85,230,255,.26);
+}
+.select-check[aria-checked="true"] .icon { opacity: 1; filter: drop-shadow(0 1px 1px rgba(2,26,38,.32)); }
 
 .node-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
 .protocol-badge {
@@ -670,6 +712,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   .toolbar-actions { justify-content: flex-start; width: 100%; }
   .search-box { flex: 1; min-width: 150px; }
   .search-box input { width: 100%; }
+  .selection-bar { top: 8px; z-index: 40; padding: 9px 11px; gap: 8px 10px; }
+  .selection-hint { display: none; }
+  .selection-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
   .hero-card { padding: 18px; }
   .hero-main { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 17px; margin: 20px 0; }
   .hero-buttons { justify-content: center; }

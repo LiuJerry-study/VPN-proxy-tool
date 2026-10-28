@@ -37,6 +37,10 @@ const S = {
   pollTimer: null,
   pollBusy: false,
   booted: false,
+  selectMode: false,
+  selection: new Set(),
+  lastSelectedIndex: -1,
+  batchBusy: false,
 };
 
 function icon(name, className = "icon") {
@@ -195,6 +199,7 @@ function showPage(name, updateHash = true) {
   document.querySelectorAll(".page").forEach((page) => page.classList.toggle("active", page.id === "page-" + name));
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.page === name));
   $("pageTitle").textContent = PAGE_TITLES[name];
+  if (name !== "nodes" && S.selectMode) setSelectMode(false);
   if (updateHash) {
     try { history.replaceState(null, "", "#" + name); } catch (error) {}
   }
@@ -443,6 +448,19 @@ function shortProtocol(node) {
   return (PROTOCOL_NAMES[type] || type).slice(0, 4).toUpperCase();
 }
 
+function visibleNodes() {
+  if (!S.data) return [];
+  const nodes = S.data.nodes || [];
+  const query = S.search.trim().toLowerCase();
+  return nodes.filter((node) => {
+    if (S.filter !== "all") {
+      if (S.filter === "other" ? META_TYPES.includes(node.type) : node.type !== S.filter) return false;
+    }
+    if (!query) return true;
+    return [node.name, node.server, node.protocol, node.type].some((value) => String(value || "").toLowerCase().includes(query));
+  });
+}
+
 function renderNodes() {
   if (!S.data) return;
   const grid = $("nodeGrid");
@@ -450,19 +468,22 @@ function renderNodes() {
   if (!grid) return;
   grid.replaceChildren();
   const nodes = S.data.nodes || [];
-  const query = S.search.trim().toLowerCase();
-  const filtered = nodes.filter((node) => {
-    if (S.filter !== "all") {
-      if (S.filter === "other" ? META_TYPES.includes(node.type) : node.type !== S.filter) return false;
+  const filtered = visibleNodes();
+  if (S.selectMode) {
+    if (!nodes.length) {
+      S.selectMode = false;
+      S.selection.clear();
+      S.lastSelectedIndex = -1;
+    } else {
+      pruneSelection(filtered);
     }
-    if (!query) return true;
-    return [node.name, node.server, node.protocol, node.type].some((value) => String(value || "").toLowerCase().includes(query));
-  });
+  }
+  renderSelectModeUI();
   grid.classList.toggle("hidden", filtered.length === 0);
   empty.classList.toggle("hidden", filtered.length > 0);
   $("nodesCount").textContent = String(nodes.length);
   if (!filtered.length) {
-    const isFiltering = Boolean(query) || S.filter !== "all";
+    const isFiltering = Boolean(S.search.trim()) || S.filter !== "all";
     empty.querySelector("h3").textContent = isFiltering ? "没有找到匹配的节点" : "这里还没有节点";
     empty.querySelector("p").textContent = isFiltering ? "换个关键词或筛选条件试试。" : "粘贴分享链接、订阅地址，或从 v2rayN 一键导入。";
     const importBtn = $("emptyImportBtn");
@@ -472,10 +493,181 @@ function renderNodes() {
   filtered.forEach((node) => grid.appendChild(createNodeCard(node)));
 }
 
+/* ---------- multi select ---------- */
+function pruneSelection(visible) {
+  if (!S.selection.size) return;
+  const visibleIds = new Set(visible.map((node) => node.id));
+  S.selection.forEach((id) => {
+    if (!visibleIds.has(id)) S.selection.delete(id);
+  });
+  if (S.lastSelectedIndex >= visible.length) S.lastSelectedIndex = -1;
+}
+
+function selectedIds() {
+  return visibleNodes().filter((node) => S.selection.has(node.id)).map((node) => node.id);
+}
+
+function updateSelectionUI() {
+  const countEl = $("selectionCount");
+  if (countEl) countEl.textContent = "已选 " + S.selection.size + " 个节点";
+  const visible = visibleNodes();
+  const allSelected = visible.length > 0 && visible.every((node) => S.selection.has(node.id));
+  const allBtn = $("selectAllBtn");
+  if (allBtn) {
+    allBtn.textContent = allSelected ? "取消全选" : "全选";
+    allBtn.disabled = !S.selectMode || visible.length === 0 || S.batchBusy;
+  }
+  const disabled = S.selection.size === 0 || !S.selectMode || S.batchBusy;
+  const copyBtn = $("batchCopyBtn");
+  if (copyBtn) copyBtn.disabled = disabled;
+  const deleteBtn = $("batchDeleteBtn");
+  if (deleteBtn) deleteBtn.disabled = disabled;
+  document.querySelectorAll("#nodeGrid .node-card").forEach((card) => {
+    const selected = S.selection.has(card.dataset.nodeId);
+    card.classList.toggle("multi-selected", selected);
+    const check = card.querySelector(".select-check");
+    if (check) check.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function renderSelectModeUI() {
+  const btn = $("selectModeBtn");
+  if (btn) {
+    btn.classList.toggle("active", S.selectMode);
+    btn.setAttribute("aria-pressed", String(S.selectMode));
+    btn.title = S.selectMode ? "退出多选模式" : "进入多选模式";
+  }
+  const label = $("selectModeLabel");
+  if (label) label.textContent = S.selectMode ? "退出多选" : "多选";
+  const bar = $("selectionBar");
+  if (bar) bar.classList.toggle("hidden", !S.selectMode);
+  const grid = $("nodeGrid");
+  if (grid) grid.classList.toggle("selecting", S.selectMode);
+  updateSelectionUI();
+}
+
+function setSelectMode(enabled) {
+  const next = Boolean(enabled);
+  if (S.selectMode === next) return;
+  if (next && S.data && !(S.data.nodes || []).length) {
+    toast("还没有可选择的节点", "warning");
+    return;
+  }
+  S.selectMode = next;
+  S.lastSelectedIndex = -1;
+  if (!next) S.selection.clear();
+  if (S.data) renderNodes();
+  renderSelectModeUI();
+}
+
+function toggleSelection(nodeId, shiftKey) {
+  const visible = visibleNodes();
+  const index = visible.findIndex((node) => node.id === nodeId);
+  if (index < 0) return;
+  if (shiftKey && S.lastSelectedIndex >= 0) {
+    const start = Math.min(S.lastSelectedIndex, index);
+    const end = Math.max(S.lastSelectedIndex, index);
+    for (let i = start; i <= end; i += 1) S.selection.add(visible[i].id);
+  } else if (S.selection.has(nodeId)) {
+    S.selection.delete(nodeId);
+  } else {
+    S.selection.add(nodeId);
+  }
+  S.lastSelectedIndex = index;
+  updateSelectionUI();
+}
+
+function selectAllVisible() {
+  const visible = visibleNodes();
+  if (!visible.length) return;
+  visible.forEach((node) => S.selection.add(node.id));
+  S.lastSelectedIndex = -1;
+  updateSelectionUI();
+}
+
+function toggleSelectAll() {
+  if (S.batchBusy) return;
+  const visible = visibleNodes();
+  if (!visible.length) return;
+  const allSelected = visible.every((node) => S.selection.has(node.id));
+  if (allSelected) S.selection.clear();
+  else visible.forEach((node) => S.selection.add(node.id));
+  S.lastSelectedIndex = -1;
+  updateSelectionUI();
+}
+
+async function batchCopySelected() {
+  if (!S.selectMode || S.batchBusy) return;
+  const ids = selectedIds();
+  if (!ids.length) return;
+  const btn = $("batchCopyBtn");
+  S.batchBusy = true;
+  setButtonBusy(btn, true, "复制中…");
+  updateSelectionUI();
+  try {
+    const payload = await api("/api/clipboard/export", { ids });
+    const copied = Number(payload.count);
+    const total = Number.isFinite(copied) && copied > 0 ? copied : ids.length;
+    let message = "已复制 " + total + " 个节点的分享链接到剪贴板";
+    if (payload.skipped) message += "，跳过 " + payload.skipped + " 个不支持导出的节点";
+    toast(message, "success", 5500);
+  } catch (error) {
+    toast(firstLine(error.message), "error", 6000);
+  } finally {
+    S.batchBusy = false;
+    setButtonBusy(btn, false);
+    updateSelectionUI();
+  }
+}
+
+function openDeleteSelectedModal() {
+  if (!S.selectMode || S.batchBusy) return;
+  const ids = selectedIds();
+  if (!ids.length) return;
+  const includesCurrent = Boolean(S.data && S.data.selected_id && ids.includes(S.data.selected_id));
+  const body = el("div");
+  body.appendChild(el("p", "", "确定删除选中的 " + ids.length + " 个节点吗？"));
+  const note = "删除只会移除轻连中的节点记录，不会影响 v2rayN 或订阅服务端的数据。";
+  body.appendChild(el("div", "danger-note", note + (includesCurrent ? "当前节点会被断开并自动切换到其他节点。" : "")));
+  const modal = openModal({
+    kicker: "NODE",
+    title: "删除节点",
+    body,
+    actions: [
+      { label: "取消", className: "btn ghost", onClick: () => modal.close() },
+      {
+        label: "删除",
+        className: "btn danger",
+        onClick: async (btn) => {
+          S.batchBusy = true;
+          setButtonBusy(btn, true, "删除中…");
+          updateSelectionUI();
+          try {
+            const payload = await api("/api/nodes/delete", { ids });
+            const removed = Number(payload.count);
+            const total = Number.isFinite(removed) && removed > 0 ? removed : ids.length;
+            if (payload.state) applyState(payload.state);
+            modal.close();
+            setSelectMode(false);
+            toast("已删除 " + total + " 个节点", "success");
+          } catch (error) {
+            setButtonBusy(btn, false);
+            toast(firstLine(error.message), "error");
+          } finally {
+            S.batchBusy = false;
+            updateSelectionUI();
+          }
+        },
+      },
+    ],
+  });
+}
+
 function createNodeCard(node) {
-  const card = el("article", "node-card" + (node.id === S.data.selected_id ? " selected" : ""));
+  const isSelected = S.selectMode && S.selection.has(node.id);
+  const card = el("article", "node-card" + (node.id === S.data.selected_id ? " selected" : "") + (isSelected ? " multi-selected" : ""));
   card.dataset.nodeId = node.id;
-  card.title = "点击切换到该节点";
+  card.title = S.selectMode ? "点击勾选节点，Shift 可连续选择" : "点击切换到该节点";
   const top = el("div", "node-top");
   const badge = el("span", "protocol-badge " + nodeTypeClass(node.type), protocolName(node));
   top.appendChild(badge);
@@ -508,6 +700,11 @@ function createNodeCard(node) {
   deleteBtn.dataset.id = node.id;
   tools.append(testBtn, renameBtn, deleteBtn);
   top.appendChild(tools);
+  const check = el("span", "select-check");
+  check.setAttribute("aria-hidden", "true");
+  check.setAttribute("aria-checked", String(isSelected));
+  check.appendChild(icon("check"));
+  top.appendChild(check);
   card.appendChild(top);
 
   card.appendChild(el("h3", "", node.name));
@@ -527,9 +724,25 @@ function createNodeCard(node) {
 
   card.addEventListener("click", (event) => {
     if (event.target.closest("[data-action]")) return;
+    if (S.selectMode || event.ctrlKey || event.metaKey) {
+      if (event.detail > 1) return;
+      if (!S.selectMode) {
+        S.selectMode = true;
+        S.lastSelectedIndex = -1;
+        renderNodes();
+      }
+      toggleSelection(node.id, event.shiftKey);
+      return;
+    }
     selectNode(node.id);
   });
-  card.addEventListener("dblclick", () => selectNode(node.id));
+  card.addEventListener("dblclick", (event) => {
+    if (S.selectMode) {
+      event.preventDefault();
+      return;
+    }
+    selectNode(node.id);
+  });
   return card;
 }
 
@@ -1290,6 +1503,11 @@ function setupEvents() {
   $("manualImportBtn").addEventListener("click", openImportModal);
   $("clipboardImportBtn").addEventListener("click", importFromClipboard);
   $("clipboardExportBtn").addEventListener("click", exportToClipboard);
+  $("selectModeBtn").addEventListener("click", () => setSelectMode(!S.selectMode));
+  $("exitSelectBtn").addEventListener("click", () => setSelectMode(false));
+  $("selectAllBtn").addEventListener("click", toggleSelectAll);
+  $("batchCopyBtn").addEventListener("click", batchCopySelected);
+  $("batchDeleteBtn").addEventListener("click", openDeleteSelectedModal);
   $("chooseNodeBtn").addEventListener("click", () => showPage("nodes"));
   $("connectBtn").addEventListener("click", toggleConnection);
   $("testCurrentBtn").addEventListener("click", () => {
@@ -1318,12 +1536,14 @@ function setupEvents() {
   });
   $("nodeSearch").addEventListener("input", (event) => {
     S.search = event.target.value;
+    S.lastSelectedIndex = -1;
     renderNodes();
   });
   $("filterStrip").addEventListener("click", (event) => {
     const chip = event.target.closest("[data-filter]");
     if (!chip) return;
     S.filter = chip.dataset.filter;
+    S.lastSelectedIndex = -1;
     document.querySelectorAll(".filter-chip").forEach((item) => item.classList.toggle("active", item === chip));
     renderNodes();
   });
@@ -1427,10 +1647,22 @@ function setupEvents() {
     if (event.target.closest("[data-modal-close]")) closeModal();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !$("modalLayer").classList.contains("hidden")) closeModal();
+    if (event.key === "Escape") {
+      if (!$("modalLayer").classList.contains("hidden")) closeModal();
+      else if (S.selectMode) setSelectMode(false);
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !$("modalLayer").classList.contains("hidden")) {
       const primary = $("modalFoot").querySelector(".btn.primary");
       if (primary) primary.click();
+      return;
+    }
+    if (S.selectMode && $("modalLayer").classList.contains("hidden") && (event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === "a") {
+      const active = document.activeElement;
+      const tag = active && active.tagName ? String(active.tagName).toUpperCase() : "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      event.preventDefault();
+      selectAllVisible();
     }
   });
 }

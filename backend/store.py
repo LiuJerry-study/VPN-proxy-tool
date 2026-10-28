@@ -8,7 +8,7 @@ from typing import Any
 
 from .util import ROOT, STORE_FILE, atomic_write_json, read_json
 
-APP_VERSION = "1.2.3"
+APP_VERSION = "1.2.4"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "local_port": 2080,

@@ -819,6 +819,20 @@ function renderSettings() {
   }
   const testUrlBtn = $("editTestUrlBtn");
   if (testUrlBtn) testUrlBtn.title = settings.test_url || "";
+  const directDomains = Array.isArray(settings.direct_domains) ? settings.direct_domains : [];
+  const proxyDomains = Array.isArray(settings.proxy_domains) ? settings.proxy_domains : [];
+  const directHint = $("directDomainsHint");
+  if (directHint) {
+    directHint.textContent = directDomains.length
+      ? "已设置 " + directDomains.length + " 个域名"
+      : "未设置 · 内网、校园网、图书馆等服务放这里";
+  }
+  const proxyHint = $("proxyDomainsHint");
+  if (proxyHint) {
+    proxyHint.textContent = proxyDomains.length
+      ? "已设置 " + proxyDomains.length + " 个域名"
+      : "未设置 · 被误判成直连、需要翻墙的站点放这里";
+  }
 }
 
 /* ---------- status polling ---------- */
@@ -1329,6 +1343,54 @@ function openTestUrlModal() {
   window.setTimeout(() => input.focus(), 50);
 }
 
+function parseDomainLines(text) {
+  return String(text || "")
+    .split(/[\s,;]+/)
+    .map((item) => item.trim().toLowerCase())
+    .map((item) => item.replace(/^[a-z][a-z0-9+.-]*:\/\//, ""))
+    .map((item) => item.split("/")[0].split(":")[0])
+    .map((item) => item.replace(/^\*+/, "").replace(/^\.+/, "").replace(/\.+$/, ""))
+    .filter(Boolean);
+}
+
+function openDomainsModal(kind) {
+  const direct = kind === "direct";
+  const key = direct ? "direct_domains" : "proxy_domains";
+  const current = Array.isArray(S.data.settings && S.data.settings[key]) ? S.data.settings[key] : [];
+  const textarea = el("textarea", "");
+  textarea.rows = 8;
+  textarea.spellcheck = false;
+  textarea.value = current.join("\n");
+  textarea.placeholder = direct ? "libsp.com\nlib.example.edu.cn" : "example.com";
+  const body = el("div");
+  body.appendChild(el("p", "", direct
+    ? "匹配到的域名会直接连接、不经过代理。适合内网服务、校园网和图书馆发现系统这类国内站点。"
+    : "匹配到的域名会强制走代理。适合需要翻墙、却被内置规则误判成直连的站点。"));
+  body.appendChild(textarea);
+  body.appendChild(el("p", "field-hint", "每行一个域名；example.com 会同时匹配它的子域名。自定义名单在规则/全局模式下生效。"));
+  const modal = openModal({
+    kicker: "ROUTING",
+    title: direct ? "强制直连域名" : "强制代理域名",
+    body,
+    wide: true,
+    actions: [
+      { label: "取消", className: "btn ghost", onClick: () => modal.close() },
+      {
+        label: "保存",
+        className: "btn primary",
+        onClick: async (btn) => {
+          const values = parseDomainLines(textarea.value);
+          setButtonBusy(btn, true, "保存中…");
+          const payload = await saveSettings({ [key]: values }, direct ? "直连域名已保存" : "代理域名已保存");
+          if (payload) modal.close();
+          else setButtonBusy(btn, false);
+        },
+      },
+    ],
+  });
+  window.setTimeout(() => textarea.focus(), 50);
+}
+
 function openV2rayNPathModal() {
   const input = el("input", "text-field");
   input.type = "text";
@@ -1579,6 +1641,8 @@ function setupEvents() {
     setButtonBusy(btn, false);
   });
   $("editTestUrlBtn").addEventListener("click", openTestUrlModal);
+  $("editDirectDomainsBtn").addEventListener("click", () => openDomainsModal("direct"));
+  $("editProxyDomainsBtn").addEventListener("click", () => openDomainsModal("proxy"));
   $("settingsReloadBtn").addEventListener("click", async () => {
     const btn = $("settingsReloadBtn");
     setButtonBusy(btn, true, "读取中…");

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import os
 import re
@@ -112,6 +113,55 @@ def as_list(value: Any) -> list[str]:
         except ValueError:
             pass
     return [part.strip() for part in re.split(r"[,|\n]", text) if part.strip()]
+
+
+# 自定义分流名单里一个域名最长 253 字符；条目数上限防止把配置文件撑爆。
+MAX_CUSTOM_DOMAINS = 300
+_DOMAIN_PATTERN = re.compile(
+    r"^(?=.{3,253}$)"
+    r"([a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?\.)+"
+    r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+)
+
+
+def _is_ip_literal(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+def normalize_domains(value: Any, limit: int = MAX_CUSTOM_DOMAINS) -> list[str]:
+    """把用户填写的自定义域名名单归一化成 sing-box 能直接用的后缀列表。
+
+    接受数组或文本：换行、逗号、分号、空格都算分隔符；会去掉协议头、
+    端口、路径和通配符前缀，统一小写，并校验是不是合法域名。
+    """
+    if isinstance(value, (list, tuple)):
+        items = [str(item) for item in value]
+    else:
+        items = re.split(r"[\s,;]+", str(value or ""))
+    result: list[str] = []
+    for raw in items:
+        token = str(raw).strip().lower()
+        if not token:
+            continue
+        token = re.sub(r"^[a-z][a-z0-9+.-]*://", "", token)
+        head = token.split("/", 1)[0]
+        if _is_ip_literal(head) or _is_ip_literal(head.strip("[]")):
+            raise ValueError(f"暂不支持直接填 IP：{raw.strip()}，请填写域名（例如 lib.example.edu.cn）")
+        token = head.split(":", 1)[0]
+        token = token.strip().lstrip("*").lstrip(".").rstrip(".")
+        if not token:
+            continue
+        if not _DOMAIN_PATTERN.match(token):
+            raise ValueError(f"域名格式不正确：{raw.strip()}（例如 lib.example.edu.cn）")
+        if token not in result:
+            result.append(token)
+    if len(result) > limit:
+        raise ValueError(f"自定义域名最多 {limit} 个，请精简后再保存")
+    return result
 
 
 def split_host_port(value: str, default_port: int = 443) -> tuple[str, int]:

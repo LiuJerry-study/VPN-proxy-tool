@@ -102,7 +102,31 @@ def build(onefile: bool, clean: bool, console: bool = False, tmpdir: str | None 
     exe = dist_dir / (f"{APP_NAME}.exe" if onefile else f"{APP_NAME}/{APP_NAME}.exe")
     if not exe.exists():
         raise SystemExit(f"打包结束但没找到产物：{exe}")
+    fix_integrity_label(exe)
     return exe
+
+
+def fix_integrity_label(exe: Path) -> None:
+    """把产物的完整性级别标回 Medium。
+
+    在带低完整性标记的目录里（比如沙箱工作区）打出来的 exe，Windows 会按
+    低权限启动它，单文件版解压临时目录时会失败，双击只弹
+    “Could not create temporary directory!”。这里尽量把 exe 标回普通用户级别。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        result = subprocess.run(
+            ["icacls", str(exe), "/setintegritylevel", "Medium"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+    except Exception:
+        return
+    if result.returncode == 0:
+        print("已把产物完整性级别设为 Medium（低权限目录里也能正常双击运行）")
+    else:
+        print("提示：如果从低完整性目录运行 exe 提示 Could not create temporary directory，")
+        print(f'  可手动执行：icacls "{exe}" /setintegritylevel Medium')
 
 
 def main() -> int:

@@ -6,9 +6,9 @@ import threading
 import uuid
 from typing import Any
 
-from .util import ROOT, STORE_FILE, atomic_write_json, read_json
+from .util import ROOT, STORE_FILE, atomic_write_json, normalize_domains, read_json
 
-APP_VERSION = "1.2.4"
+APP_VERSION = "1.2.6"
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "local_port": 2080,
@@ -20,6 +20,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "auto_connect": False,
     "test_url": "https://www.gstatic.com/generate_204",
     "v2rayn_path": str(ROOT.parent / "v2rayN-windows-64"),
+    "direct_domains": [],
+    "proxy_domains": [],
 }
 
 DEFAULT_STORE: dict[str, Any] = {
@@ -115,6 +117,8 @@ class Store:
                 elif key == "mode":
                     if value not in {"rule", "global", "direct"}:
                         raise ValueError("未知代理模式")
+                elif key in {"direct_domains", "proxy_domains"}:
+                    value = normalize_domains(value)
                 elif key in {"test_url", "v2rayn_path"}:
                     value = str(value).strip()
                 self._data["settings"][key] = value

@@ -199,19 +199,43 @@ def build_outbound(node: dict[str, Any], tag: str = "proxy") -> dict[str, Any]:
     raise ValueError(f"暂不支持此节点协议：{node_type}")
 
 
-def _rule_sets() -> list[dict[str, Any]]:
+def _rule_sets(names: tuple[str, ...] | None = None) -> list[dict[str, Any]]:
     result = []
     for tag, path in RULE_FILES.items():
+        if names is not None and tag not in names:
+            continue
         if path.exists():
             result.append({"type": "local", "tag": tag, "format": "binary", "path": _posix(path)})
     return result
 
 
-def _base_dns(mode: str, include_remote: bool) -> dict[str, Any]:
+def _custom_domains(settings: dict[str, Any], key: str) -> list[str]:
+    """读取用户在设置里维护的自定义域名名单（Store 已归一化，这里再兜底清洗）。"""
+    raw = settings.get(key)
+    if not isinstance(raw, (list, tuple)):
+        return []
+    result: list[str] = []
+    for item in raw:
+        value = str(item).strip().lower().lstrip("*").lstrip(".").rstrip(".")
+        if value and value not in result:
+            result.append(value)
+    return result
+
+
+def _base_dns(mode: str, include_remote: bool, settings: dict[str, Any]) -> dict[str, Any]:
     servers: list[dict[str, Any]] = [
         {"type": "udp", "tag": "dns-local", "server": "223.5.5.5"},
     ]
     rules: list[dict[str, Any]] = []
+    direct_domains = _custom_domains(settings, "direct_domains")
+    proxy_domains = _custom_domains(settings, "proxy_domains")
+    # 自定义名单的解析方式要和分流方式一致：强制直连的域名用国内 DNS 解析，
+    # 避免被远程 DNS 带到境外 CDN 节点；强制代理的域名用远程 DNS 解析，
+    # 避免本地 DNS 污染。
+    if include_remote and proxy_domains:
+        rules.append({"domain_suffix": proxy_domains, "server": "dns-remote"})
+    if include_remote and direct_domains:
+        rules.append({"domain_suffix": direct_domains, "server": "dns-local"})
     if mode == "rule":
         rules.extend([
             {"rule_set": "geosite-private", "server": "dns-local"},
@@ -220,10 +244,18 @@ def _base_dns(mode: str, include_remote: bool) -> dict[str, Any]:
         ])
     if include_remote:
         servers.append({"type": "https", "tag": "dns-remote", "server": "1.1.1.1", "detour": "proxy"})
-    return {"servers": servers, "rules": rules, "final": "dns-remote" if include_remote else "dns-local"}
+    return {
+        "servers": servers,
+        "rules": rules,
+        "final": "dns-remote" if include_remote else "dns-local",
+        # 校园网/部分宽带的 IPv6 常常只是半通不达。按 AAAA 优先时，直连域名
+        # 容易先撞上一个必然超时的 IPv6 地址，表现为「代理已经连上，但网页
+        # 一直转圈」。优先 IPv4 但不放弃 IPv6，和手机版保持一致。
+        "strategy": "prefer_ipv4",
+    }
 
 
-def _route(mode: str, tun_mode: bool) -> dict[str, Any]:
+def _route(mode: str, tun_mode: bool, settings: dict[str, Any]) -> dict[str, Any]:
     rules: list[dict[str, Any]] = [
         {"action": "sniff"},
         {"protocol": "dns", "action": "hijack-dns"},
@@ -231,15 +263,39 @@ def _route(mode: str, tun_mode: bool) -> dict[str, Any]:
     ]
     rule_sets: list[dict[str, Any]] = []
     include_remote = mode in {"rule", "global"}
+    direct_domains = _custom_domains(settings, "direct_domains")
+    proxy_domains = _custom_domains(settings, "proxy_domains")
     if mode == "rule":
         rule_sets = _rule_sets()
+        # 用户自定义名单优先级最高：强制代理 > 强制直连 > 内置分流规则。
+        # 加了这条后，「某个站被内置规则判错」就不用等更新规则文件了。
+        if proxy_domains:
+            rules.append({"domain_suffix": proxy_domains, "outbound": "proxy"})
+        if direct_domains:
+            rules.append({"domain_suffix": direct_domains, "outbound": "direct"})
         rules.extend([
             {"rule_set": "geosite-private", "outbound": "direct"},
             {"rule_set": "geosite-cn", "outbound": "direct"},
             {"rule_set": "geosite-geolocation-cn", "outbound": "direct"},
-            {"rule_set": "geoip-cn", "outbound": "direct"},
             {"rule_set": "geosite-category-ads-all", "action": "reject"},
+            # sing-box 1.11 起 IP 类规则不再隐式解析域名。系统代理模式下目标
+            # 地址只有域名，缺了这条 resolve，下面的 geoip-cn 永远不会命中，
+            # 所有不在 geosite 收录里的国内站点都会被误送进代理（例如用独立
+            # 域名托管的校园图书馆发现系统），表现就是一直转圈、最后超时，
+            # 而断开代理反而能打开。解析按 DNS 规则走：命中国内规则的用国内
+            # DNS，其余用远程 DNS，避免本地 DNS 污染把境外域名误判成直连。
+            {"action": "resolve", "strategy": "prefer_ipv4"},
+            {"ip_is_private": True, "outbound": "direct"},
+            {"rule_set": "geoip-cn", "outbound": "direct"},
         ])
+    elif mode == "global":
+        # 全局模式承诺「局域网和私有地址直连」，域名形式的局域网入口
+        # （路由器后台、群晖、打印机）也要直连，否则会卡在代理上；
+        # 自定义直连名单在全局模式下同样生效。
+        rule_sets = _rule_sets(("geosite-private",))
+        if direct_domains:
+            rules.append({"domain_suffix": direct_domains, "outbound": "direct"})
+        rules.append({"rule_set": "geosite-private", "outbound": "direct"})
     final = "direct" if mode == "direct" else "proxy"
     result: dict[str, Any] = {
         "auto_detect_interface": True,
@@ -297,13 +353,13 @@ def build_config(node: dict[str, Any], settings: dict[str, Any], api_port: int, 
     include_remote = mode in {"rule", "global"}
     return {
         "log": {"level": "info", "timestamp": True},
-        "dns": _base_dns(mode, include_remote),
+        "dns": _base_dns(mode, include_remote, settings),
         "inbounds": _inbounds(settings),
         "outbounds": [
             build_outbound(node, "proxy"),
             {"type": "direct", "tag": "direct"},
         ],
-        "route": _route(mode, tun_mode),
+        "route": _route(mode, tun_mode, settings),
         "experimental": _experimental(api_port, api_secret),
     }
 
@@ -315,7 +371,7 @@ def build_test_config(nodes: list[dict[str, Any]], api_port: int, api_secret: st
     outbounds.append({"type": "direct", "tag": "direct"})
     return {
         "log": {"level": "warn", "timestamp": True},
-        "dns": _base_dns("global", False),
+        "dns": _base_dns("global", False, {}),
         "inbounds": [{
             "type": "mixed",
             "tag": "test-in",

@@ -307,7 +307,8 @@ class CoreManager:
 
     def update_runtime_settings(self, old: dict[str, Any], new: dict[str, Any]) -> None:
         active = self._state in {"connected", "starting"}
-        restart_keys = {"mode", "local_port", "tun_mode"}
+        # 这些设置会影响生成的分流规则，改动后必须重载核心才能生效。
+        restart_keys = {"mode", "local_port", "tun_mode", "direct_domains", "proxy_domains"}
         if active and any(old.get(k) != new.get(k) for k in restart_keys):
             self.restart_if_connected()
             return
